@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<annotation>
+  <folder>D:\360MoveData\Users\10152\Desktop\机器学习\Annotations</folder>
+  <filename>cc102.jpg</filename>
+  <size>
+    <width>850</width>
+    <height>478</height>
+    <depth>3</depth>
+  </size>
+  <source>
+    <database>https://github.com/CVHub520/X-AnyLabeling</database>
+  </source>
+  <object>
+    <name>water</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <occluded>0</occluded>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>0</xmin>
+      <ymin>257</ymin>
+      <xmax>847</xmax>
+      <ymax>477</ymax>
+    </bndbox>
+    <polygon>
+      <x1>2.777777777777775</x1>
+      <y1>260.1111111111111</y1>
+      <x2>473.88888888888886</x2>
+      <y2>286.77777777777777</y2>
+      <x3>638.8888888888889</x3>
+      <y3>285.6666666666667</y3>
+      <x4>726.1111111111111</x4>
+      <y4>280.1111111111111</y4>
+      <x5>760.0</x5>
+      <y5>257.3333333333333</y5>
+      <x6>847.7777777777778</x6>
+      <y6>264.0</y6>
+      <x7>846.6666666666666</x7>
+      <y7>475.1111111111111</y7>
+      <x8>126</x8>
+      <y8>477</y8>
+      <x9>0</x9>
+      <y9>475</y9>
+    </polygon>
+  </object>
+</annotation>

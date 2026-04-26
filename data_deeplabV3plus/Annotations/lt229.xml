@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<annotation>
+  <folder>D:\360MoveData\Users\10152\Desktop\机器学习\Annotations</folder>
+  <filename>lt229.jpg</filename>
+  <size>
+    <width>640</width>
+    <height>640</height>
+    <depth>3</depth>
+  </size>
+  <source>
+    <database>https://github.com/CVHub520/X-AnyLabeling</database>
+  </source>
+  <object>
+    <name>water</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <occluded>0</occluded>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>0</xmin>
+      <ymin>449</ymin>
+      <xmax>639</xmax>
+      <ymax>638</ymax>
+    </bndbox>
+    <polygon>
+      <x1>5.436893203883528</x1>
+      <y1>485.04854368932035</y1>
+      <x2>343.30097087378647</x2>
+      <y2>487.96116504854365</y2>
+      <x3>342.3300970873787</x3>
+      <y3>449.12621359223306</y3>
+      <x4>545.2427184466019</x4>
+      <y4>454.95145631067965</y4>
+      <x5>576.3106796116505</x5>
+      <y5>451.0679611650486</y5>
+      <x6>639</x6>
+      <y6>457</y6>
+      <x7>639</x7>
+      <y7>636</y7>
+      <x8>0</x8>
+      <y8>638</y8>
+    </polygon>
+  </object>
+</annotation>

@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<annotation>
+  <folder>D:\360MoveData\Users\10152\Desktop\机器学习\Annotations</folder>
+  <filename>lt290.jpg</filename>
+  <size>
+    <width>640</width>
+    <height>640</height>
+    <depth>3</depth>
+  </size>
+  <source>
+    <database>https://github.com/CVHub520/X-AnyLabeling</database>
+  </source>
+  <object>
+    <name>water</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <occluded>0</occluded>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>0</xmin>
+      <ymin>286</ymin>
+      <xmax>638</xmax>
+      <ymax>637</ymax>
+    </bndbox>
+    <polygon>
+      <x1>0.5825242718446759</x1>
+      <y1>320.97087378640776</y1>
+      <x2>123.88349514563109</x2>
+      <y2>307.37864077669906</y2>
+      <x3>129.70873786407768</x3>
+      <y3>327.7669902912621</y3>
+      <x4>261.747572815534</x4>
+      <y4>333.5922330097087</y4>
+      <x5>443.30097087378635</x5>
+      <y5>298.6407766990292</y5>
+      <x6>444.2718446601941</x6>
+      <y6>286.0194174757281</y6>
+      <x7>638.4466019417475</x7>
+      <y7>293.78640776699035</y7>
+      <x8>637.4757281553398</x8>
+      <y8>637.4757281553399</y8>
+      <x9>0.5825242718446759</x9>
+      <y9>637.4757281553399</y9>
+    </polygon>
+  </object>
+</annotation>

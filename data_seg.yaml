@@ -1,0 +1,10 @@
+train: data/images/train # 训练集图像文件夹
+val: data/images/val   # 验证集图像文件夹
+test: data/images/test
+# 关键补充：明确指定任务类型为语义分割
+task: segment  # 必须添加！告诉模型这是分割任务，而非检测/分类
+
+# 类别配置（正确，无需修改）
+nc: 1  # 类别数量：1个（water）
+names:
+  0: water  # 类别ID 0 对应 "water"（洪水区域）

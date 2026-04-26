@@ -1,0 +1,17 @@
+# YOLO自定义数据集配置文件（3类别：车轮、车灯、后视镜）
+# 核心作用：告诉模型数据集位置、类别数量和类别名称
+
+# 1. 训练集/验证集/测试集图片路径（使用划分后的实际路径）
+# 注意：路径中的反斜杠\替换为正斜杠/，避免Windows系统读取错误
+train: C:\Users\25896\Desktop\yolov11\train3\train4\images\train # 训练集图片（划分后）
+val: C:\Users\25896\Desktop\yolov11\train3\train4\images\train    # 验证集图片（划分后）
+test: C:\Users\25896\Desktop\yolov11\train3\train4\images\test   # 新增测试集路径（划分后）
+
+# 2. 类别数量（3个类别，与names列表长度必须一致）
+nc: 3
+
+# 3. 类别名称（顺序=标注时的class_id，与划分前保持一致）
+names:
+  - wheel          # 0：车轮
+  - light          # 1：车灯
+  - rearview mirror # 2：后视镜

@@ -1,0 +1,3 @@
+data_deeplabV3plus文件夹放置 train_deeplabV3plus_seg训练需要的数据
+
+包含掩码标签等

@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水位与水面检测软件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36BFFA',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+        // 标签映射（英文 → 中文）
+        const labelMap = {
+            "wheel": "车轮及以下",
+            "light": "车轮顶部至车窗下",
+            "rearview mirror": "车窗及以上",
+        };
+    </script>
+    <style type="text/tailwindcss">
+        /* 让侧边栏滚动条更细 */
+        #history-sidebar::-webkit-scrollbar { width: 4px; }
+        #history-sidebar::-webkit-scrollbar-thumb { @apply bg-primary/30 rounded-full; }
+        @layer utilities {
+            .content-auto { content-visibility: auto; }
+            .shadow-soft { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+            .transition-all-300 { transition: all 300ms ease-in-out; }
+            .hover-lift { transition: transform 0.2s, box-shadow 0.2s; }
+            .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(22,93,255,0.15); }
+
+            /* 通用滑动开关轨道 */
+            .switch + span {
+                @apply relative w-14 h-8 flex items-center bg-gray-300 rounded-full transition-colors duration-300;
+            }
+            /* 滑块圆点 */
+            .switch + span::after {
+                content: '';
+                @apply absolute left-1 top-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300;
+            }
+            /* 打开时轨道变色 */
+            .switch:checked + span {
+                @apply bg-primary;
+            }
+            /* 打开时圆点右移 */
+            .switch:checked + span::after {
+                transform: translateX(1.5rem);
+            }
+
+            /* 模型选择滑块样式 */
+            .model-slider {
+                @apply relative w-64 h-12 bg-slate-100 rounded-full p-1 cursor-pointer transition-all duration-300;
+            }
+
+            .model-slider.checked {
+                @apply bg-primary bg-sky-200;
+            }
+
+            .model-slider-thumb {
+                @apply absolute top-1 w-1/2 h-10 bg-white text-sky-700 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center font-medium text-sm;
+            }
+
+            .model-option {
+                @apply w-1/2 h-full flex items-center justify-center text-sm font-medium transition-all duration-300;
+            }
+            .model-slider-thumb {
+            @apply absolute top-1 w-1/2 h-10 bg-white rounded-full shadow-lg
+                   transition-all duration-300 flex items-center justify-center
+                   text-sm font-semibold text-emerald-700;   /* 加粗 + 颜色 */
+            }
+
+            /* 三点菜单样式 */
+            .dropdown-menu {
+                @apply absolute right-0 top-8 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden;
+            }
+
+            .dropdown-menu.show {
+                @apply block;
+            }
+
+            .dropdown-item {
+                @apply flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer;
+            }
+
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 text-dark min-h-screen flex flex-col">
+<header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <i class="fa fa-tint text-primary text-2xl"></i>
+            <h1 class="text-xl font-semibold text-primary">水检测助手</h1>
+        </div>
+        <div class="flex items-center space-x-6">
+            <button id="history-btn" class="text-gray-600 hover:text-primary transition-all-300"><i class="fa fa-history"></i><span class="ml-1 hidden sm:inline">历史记录</span></button>
+            <button class="text-gray-600 hover:text-primary transition-all-300"><i class="fa fa-question-circle"></i><span class="ml-1 hidden sm:inline">帮助</span></button>
+            <button class="text-gray-600 hover:text-primary transition-all-300"><i class="fa fa-cog"></i><span class="ml-1 hidden sm:inline">设置</span></button>
+        </div>
+    </div>
+</header>
+
+<main class="flex-grow container mx-auto px-4 py-8">
+    <!-- 说明 -->
+    <div class="text-center mb-8 max-w-2xl mx-auto">
+        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold mb-3">水位与水面检测工具</h2>
+        <p class="text-gray-600">导入图片并选择检测模型，系统将自动分析并标记图片中的水位或水面区域</p>
+    </div>
+
+    <!-- 上传 -->
+    <div id="drop-area" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center bg-white shadow-soft mb-8 cursor-pointer hover:border-primary transition-all-300">
+        <div class="max-w-md mx-auto">
+            <i class="fa fa-cloud-upload text-5xl text-primary mb-4"></i>
+            <h3 class="text-lg font-medium mb-2">拖放图片到此处，或点击选择图片</h3>
+            <p class="text-gray-500 text-sm mb-4">支持 JPG、PNG 等常见图片格式</p>
+            <label class="inline-block bg-primary text-white py-2 px-6 rounded-lg hover:bg-primary/90 transition-all-300 cursor-pointer hover-lift">
+                <i class="fa fa-file-image-o mr-2"></i>选择图片
+                <input type="file" id="file-input" accept="image/*" class="hidden">
+            </label>
+        </div>
+    </div>
+
+    <!-- 预览 & 处理结果（3列布局：原始图 + 水位结果 + 水面结果） -->
+    <div id="preview-section" class="hidden">
+        <div class="flex flex-wrap items-center justify-between mb-6 gap-4">
+            <button id="reset-btn" class="inline-flex items-center bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-all-300 hover-lift">
+                <i class="fa fa-undo mr-2"></i>重新选择图像
+            </button>
+        </div>
+
+        <!-- 结果显示区域：3列响应式布局 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- 原始图片 -->
+            <div class="bg-white rounded-xl shadow-soft p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-medium flex items-center"><i class="fa fa-picture-o text-gray-500 mr-2"></i>原始图片</h3>
+                    <div class="relative">
+                        <button class="text-gray-500 hover:text-gray-700 dropdown-toggle">
+                            <i class="fa fa-ellipsis-v"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <div class="dropdown-item" onclick="downloadOriginalImage()">
+                                <i class="fa fa-download mr-2"></i>下载原图
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="aspect-video bg-neutral rounded-lg flex items-center justify-center overflow-hidden">
+                    <img id="original-image" src="" alt="原始图片预览" class="max-w-full max-h-full object-contain">
+                </div>
+            </div>
+
+            <!-- 水位检测结果 -->
+            <div class="bg-white rounded-xl shadow-soft p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-medium flex items-center"><i class="fa fa-level-up text-primary mr-2"></i>水位检测结果</h3>
+                    <div class="relative">
+                        <button class="text-gray-500 hover:text-gray-700 dropdown-toggle">
+                            <i class="fa fa-ellipsis-v"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <div class="dropdown-item" onclick="downloadLevelImage()">
+                                <i class="fa fa-download mr-2"></i>下载检测图片
+                            </div>
+                            <div class="dropdown-item" onclick="downloadLevelReport()">
+                                <i class="fa fa-file-text-o mr-2"></i>下载文字报告
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="aspect-video bg-neutral rounded-lg flex items-center justify-center overflow-hidden">
+                    <div id="level-result-placeholder" class="text-center text-gray-400"><i class="fa fa-image text-5xl mb-2"></i><p>水位检测结果将显示在这里</p></div>
+                    <img id="level-result-image" src="" alt="水位检测结果" class="max-w-full max-h-full object-contain hidden">
+                </div>
+                <!-- 水位检测分析卡片 -->
+                <div id="level-risk-card" class="hidden mt-4 rounded-xl p-4 text-white transition-all duration-300 text-sm">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-medium">水位险情分析</span>
+                        <span id="level-risk-badge" class="px-2 py-0.5 rounded-full text-xs bg-white bg-opacity-30"></span>
+                    </div>
+                    <p id="level-risk-desc" class="line-clamp-2"></p>
+                    <p id="level-risk-prob" class="mt-1 text-xs opacity-80"></p>
+                    <p id="level-infer-time" class="mt-1 text-xs opacity-80"></p>
+                </div>
+                <div id="level-tag-stats" class="hidden mt-3 text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
+                  <div class="font-medium mb-2 flex items-center">
+                    <i class="fa fa-tags mr-2 text-primary"></i>检测标签统计
+                  </div>
+                  <div id="level-tag-list" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+
+            <!-- 水面检测结果 -->
+            <div class="bg-white rounded-xl shadow-soft p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-medium flex items-center"><i class="fa fa-arrows-h text-secondary mr-2"></i>水面检测结果</h3>
+                    <div class="relative">
+                        <button class="text-gray-500 hover:text-gray-700 dropdown-toggle">
+                            <i class="fa fa-ellipsis-v"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <div class="dropdown-item" onclick="downloadSurfaceImage()">
+                                <i class="fa fa-download mr-2"></i>下载检测图片
+                            </div>
+                            <div class="dropdown-item" onclick="downloadSurfaceReport()">
+                                <i class="fa fa-file-text-o mr-2"></i>下载文字报告
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="aspect-video bg-neutral rounded-lg flex items-center justify-center overflow-hidden">
+                    <div id="surface-result-placeholder" class="text-center text-gray-400"><i class="fa fa-image text-5xl mb-2"></i><p>水面检测结果将显示在这里</p></div>
+                    <img id="surface-result-image" src="" alt="水面检测结果" class="max-w-full max-h-full object-contain hidden">
+                </div>
+                <!-- 水面检测分析卡片 -->
+                <div id="surface-analysis-card" class="hidden mt-4 rounded-xl p-4 text-white transition-all duration-300 text-sm bg-secondary/90">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-medium">水面检测分析</span>
+                        <span id="surface-status-badge" class="px-2 py-0.5 rounded-full text-xs bg-white bg-opacity-30">已完成</span>
+                    </div>
+                    <p id="surface-area-ratio" class="line-clamp-2 font-medium"></p>
+                    <p id="surface-water-count" class="mt-1 text-xs opacity-80"></p>
+                    <p id="surface-infer-time" class="mt-1 text-xs opacity-80"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模型选择 & 一键检测按钮 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 mb-6">
+            <h3 class="text-lg font-medium mb-6 flex items-center"><i class="fa fa-cogs text-gray-500 mr-2"></i>检测模型配置与执行</h3>
+
+            <!-- 模型选择区域（并排布局） -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <!-- 水位检测模型选择 -->
+                <div class="flex flex-col items-center">
+                  <div id="level-model-slider" class="model-slider order-2 mt-3">
+                    <div class="model-slider-thumb" id="level-thumb">YOLOv11</div>
+                    <div class="model-option" data-value="YOLOv11">YOLOv11</div>
+                  </div>
+                  <h4 class="text-lg font-bold text-primary mb-0 order-1">水位检测模型</h4>
+                </div>
+
+                <!-- 水面检测模型选择 -->
+                <div class="flex flex-col items-center">
+                  <div id="surface-model-slider" class="model-slider order-2 mt-3">
+                    <div class="model-slider-thumb" id="surface-thumb">YOLOv11</div>
+                    <div class="model-option" data-value="YOLOv11">YOLOv11</div>
+                  </div>
+                  <h4 class="text-lg font-bold text-secondary mb-0 order-1">水面检测模型</h4>
+                </div>
+            </div>
+
+            <!-- 一键检测按钮（突出显示） -->
+            <button id="one-click-detect" class="w-full sm:w-auto bg-gradient-to-r from-primary to-secondary text-white py-4 px-10 rounded-lg text-lg font-semibold hover:from-primary/90 hover:to-secondary/90 transition-all-300 flex items-center justify-center hover-lift mx-auto">
+                <i class="fa fa-bolt mr-2"></i>一键检测
+            </button>
+        </div>
+    </div>
+
+    <!-- 处理中 -->
+    <div id="processing-section" class="hidden text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-primary border-solid"></div>
+        <p class="mt-4 text-lg text-gray-600">正在同时处理水位与水面检测，请稍候...</p>
+    </div>
+
+    <!-- 右侧历史记录侧边栏 -->
+    <div id="history-overlay" class="fixed inset-0 bg-black/40 z-40 hidden"></div>
+    <aside id="history-sidebar"
+           class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl transform translate-x-full
+                  transition-transform duration-300 ease-in-out z-50 flex flex-col">
+      <!-- 头部 -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium flex items-center">
+        <i class="fa fa-history text-primary mr-2"></i>检测历史
+      </h3>
+      <div class="flex items-center space-x-3">
+        <!-- 一键清除 -->
+        <button id="clear-history-btn"
+                class="text-sm text-red-600 hover:text-red-800 transition">
+          <i class="fa fa-trash-o mr-1"></i>清空
+        </button>
+        <!-- 关闭 -->
+        <button id="close-history-btn" class="text-gray-500 hover:text-gray-700">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+      <!-- 列表区 -->
+      <div class="flex-1 overflow-y-auto px-5 py-4">
+        <div id="history-list" class="space-y-4">
+          <div class="text-center text-gray-500 py-8" id="empty-history">
+            <i class="fa fa-folder-open-o text-4xl mb-2"></i>
+            <p>暂无检测历史记录</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+</main>
+
+<footer class="bg-white border-t border-gray-200 py-6">
+    <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+        水检测助手 &copy; 2025 - khwの简单高效的水位与水面检测工具
+    </div>
+</footer>
+
+<script>
+    /* ---------- DOM 元素获取 ---------- */
+    const dropArea           = document.getElementById('drop-area');
+    const fileInput          = document.getElementById('file-input');
+    const previewSection     = document.getElementById('preview-section');
+    const originalImage      = document.getElementById('original-image');
+    // 水位结果元素
+    const levelResultImage   = document.getElementById('level-result-image');
+    const levelResultPlaceholder = document.getElementById('level-result-placeholder');
+    const levelRiskCard      = document.getElementById('level-risk-card');
+    const levelRiskBadge     = document.getElementById('level-risk-badge');
+    const levelRiskDesc      = document.getElementById('level-risk-desc');
+    const levelRiskProb      = document.getElementById('level-risk-prob');
+    const levelInferTime     = document.getElementById('level-infer-time');
+    // 水面结果元素（新增分析卡片相关DOM）
+    const surfaceResultImage = document.getElementById('surface-result-image');
+    const surfaceResultPlaceholder = document.getElementById('surface-result-placeholder');
+    const surfaceAnalysisCard = document.getElementById('surface-analysis-card'); // 水面分析卡片
+    const surfaceStatusBadge = document.getElementById('surface-status-badge'); // 水面状态标识
+    const surfaceAreaRatio   = document.getElementById('surface-area-ratio');   // 水面占比
+    const surfaceWaterCount  = document.getElementById('surface-water-count');  // 水面区域数量
+    const surfaceInferTime   = document.getElementById('surface-infer-time');   // 水面推理耗时
+
+    // 其他元素
+    const processingSection  = document.getElementById('processing-section');
+    const oneClickDetectBtn  = document.getElementById('one-click-detect');
+    const resetBtn           = document.getElementById('reset-btn');
+    const levelModelSlider   = document.getElementById('level-model-slider');
+    const surfaceModelSlider = document.getElementById('surface-model-slider');
+    const levelThumb         = document.getElementById('level-thumb');
+    const surfaceThumb       = document.getElementById('surface-thumb');
+
+    let currentFile = null;
+    let levelModel = 'YOLOv11';   // 水位当前选择模型
+    let surfaceModel = 'YOLOv11'; // 水面当前选择模型
+    function renderLevelTagStats(countMap){
+      const box = document.getElementById('level-tag-list');
+      const wrapper = document.getElementById('level-tag-stats');
+      if(!countMap || !Object.keys(countMap).length){
+        wrapper.classList.add('hidden');
+        return;
+      }
+      box.innerHTML = Object.entries(countMap)
+        .map(([cls,num])=>{
+          const label = labelMap[cls] || cls; // 使用映射，若无则原样显示
+          return `<span class="tag-chip">${label}：${num}</span>`;
+        })
+        .join('');
+      wrapper.classList.remove('hidden');
+    }
+    /* ---------- 水位险情卡片渲染 ---------- */
+    function renderLevelRiskCard(analysisData) {
+        // 风险等级文字映射
+        const riskTextMap = ['安全', '低风险', '中风险', '高风险'];
+        // 风险等级颜色映射
+        const riskColorMap = [
+            'bg-emerald-500',   // 0 安全
+            'bg-amber-500',     // 1 低风险
+            'bg-orange-500',    // 2 中风险
+            'bg-red-600'        // 3 高风险
+        ];
+
+        // 设置卡片内容
+        levelRiskBadge.textContent = riskTextMap[analysisData.risk_level];
+        levelRiskDesc.textContent = analysisData.risk_desc;
+        levelRiskProb.textContent = `概率 ${(analysisData.prob * 100).toFixed(0)}%（共检出 ${analysisData.total_obj} 处）`;
+        const inferTime = analysisData.infer_time == null ? 0 : Number(analysisData.infer_time).toFixed(1);
+        levelInferTime.textContent = `推理耗时 ${inferTime} ms`;
+
+        // 设置卡片颜色并显示
+        levelRiskCard.className = `mt-4 rounded-xl p-4 text-white transition-all duration-300 text-sm ${riskColorMap[analysisData.risk_level]}`;
+        levelRiskCard.classList.remove('hidden');
+    }
+
+    /* ---------- 水面分析卡片渲染（新增） ---------- */
+    function renderSurfaceAnalysisCard(surfaceData) {
+        // 从后端返回的surface_analysis中提取数据（后端已处理的水面分析结果）
+        const { water_area_ratio, water_count } = surfaceData.surface_analysis;
+        // 处理推理耗时（兼容后端可能返回的null值）
+        const inferTime = surfaceData.infer_time == null ? 0 : Number(surfaceData.infer_time).toFixed(1);
+
+        // 设置水面分析卡片内容
+        surfaceAreaRatio.textContent = `水面面积占比：${water_area_ratio}%`;
+        surfaceWaterCount.textContent = `检测到水面区域：${water_count}处`;
+        surfaceInferTime.textContent = `推理耗时：${inferTime} ms`;
+        surfaceStatusBadge.textContent = '已完成'; // 固定状态标识（水面无风险等级）
+
+        // 显示水面分析卡片（使用水面主题色，与前端样式对齐）
+        surfaceAnalysisCard.className = 'mt-4 rounded-xl p-4 text-white transition-all duration-300 text-sm bg-secondary/90';
+        surfaceAnalysisCard.classList.remove('hidden');
+    }
+    const historySidebar   = document.getElementById('history-sidebar');
+    const historyOverlay   = document.getElementById('history-overlay');
+
+    /* 打开 */
+    document.getElementById('history-btn').addEventListener('click', () => {
+      renderHistoryPanel();          // 复用你原来的渲染函数
+      historyOverlay.classList.remove('hidden');
+      historySidebar.classList.remove('translate-x-full');
+    });
+    /* ---------- 三点菜单开关 ---------- */
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.dropdown-toggle');
+      if (btn) {
+        // 切换当前菜单
+        const menu = btn.nextElementSibling;
+        menu.classList.toggle('show');
+        // 关闭其它菜单
+        document.querySelectorAll('.dropdown-menu').forEach(m => {
+          if (m !== menu) m.classList.remove('show');
+        });
+        return;
+      }
+      // 点击空白处关闭
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+    });
+    function closeHistory() {
+      historySidebar.classList.add('translate-x-full');
+      // 等动画结束再隐藏遮罩，更顺滑
+      setTimeout(() => historyOverlay.classList.add('hidden'), 300);
+    }
+    document.getElementById('close-history-btn').addEventListener('click', closeHistory);
+    historyOverlay.addEventListener('click', closeHistory);
+    /* ---------- 下载工具 ---------- */
+    function downloadDataURL(dataURL, fileName) {
+      const a = document.createElement('a');
+      a.href = dataURL;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    function downloadText(content, fileName) {
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      downloadDataURL(url, fileName);
+      URL.revokeObjectURL(url);
+    }
+
+    /* ---------- 原始图下载 ---------- */
+    function downloadOriginalImage() {
+      downloadDataURL(originalImage.src, 'original.jpg');
+    }
+
+    /* ---------- 水位结果 ---------- */
+    function downloadLevelImage() {
+      if (!levelResultImage.src || levelResultImage.classList.contains('hidden')) {
+        return alert('请先进行检测');
+      }
+      downloadDataURL(levelResultImage.src, 'level_detect.jpg');
+    }
+    function downloadLevelReport() {
+      if (levelRiskCard.classList.contains('hidden')) {
+        return alert('请先进行检测');
+      }
+      const lines = [
+        '水位检测报告',
+        `风险等级：${levelRiskBadge.textContent}`,
+        `描述：${levelRiskDesc.textContent}`,
+        `${levelRiskProb.textContent}`,
+        `${levelInferTime.textContent}`
+      ];
+      downloadText(lines.join('\n'), 'level_report.txt');
+    }
+
+    /* ---------- 水面结果 ---------- */
+    function downloadSurfaceImage() {
+      if (!surfaceResultImage.src || surfaceResultImage.classList.contains('hidden')) {
+        return alert('请先进行检测');
+      }
+      downloadDataURL(surfaceResultImage.src, 'surface_detect.jpg');
+    }
+    function downloadSurfaceReport() {
+      if (surfaceAnalysisCard.classList.contains('hidden')) {
+        return alert('请先进行检测');
+      }
+      const lines = [
+        '水面检测报告',
+        `${surfaceAreaRatio.textContent}`,
+        `${surfaceWaterCount.textContent}`,
+        `${surfaceInferTime.textContent}`
+      ];
+      downloadText(lines.join('\n'), 'surface_report.txt');
+    }
+    /* ---------- 模型选择滑块逻辑 ---------- */
+    function setupModelSlider(slider, thumb, defaultModel, models) {
+        let currentModel = defaultModel;
+
+        function updateSliderPosition() {
+            const isRight = currentModel === models[1];
+            thumb.style.left = isRight ? '50%' : '0%';
+            thumb.textContent = currentModel;
+            slider.classList.toggle('checked', isRight);
+
+            // 文字颜色随状态变化
+            if (slider === levelModelSlider) {
+                thumb.classList.toggle('text-emerald-700', isRight);
+                thumb.classList.toggle('text-gray-600', !isRight);
+            }
+            if (slider === surfaceModelSlider) {
+                thumb.classList.toggle('text-emerald-700', isRight);
+                thumb.classList.toggle('text-gray-600', !isRight);
+            }
+        }
+
+        slider.addEventListener('click', () => {
+            currentModel = currentModel === models[0] ? models[1] : models[0];
+            updateSliderPosition();
+
+            if (slider === levelModelSlider) levelModel = currentModel;
+            if (slider === surfaceModelSlider) surfaceModel = currentModel;
+        });
+
+        updateSliderPosition();
+        return () => currentModel;
+    }
+
+    function renderHistoryPanel() {
+      const listBox = document.getElementById('history-list');
+      if (!historyArr.length) {
+        listBox.innerHTML = `<div class="text-center text-gray-500 py-8" id="empty-history">
+          <i class="fa fa-folder-open-o text-4xl mb-2"></i><p>暂无检测历史记录</p></div>`;
+        return;
+      }
+      listBox.innerHTML = historyArr.map(it => `
+        <div class="bg-neutral rounded-lg p-3 flex items-center gap-4 text-sm">
+          <img src="${it.orig}" class="w-16 h-12 object-cover rounded" />
+          <div class="flex-1">
+            <div class="font-medium text-gray-700">${it.date}</div>
+            <div class="text-xs text-gray-500">水位：${it.levelBadge}　水面：${it.surfRatio}</div>
+          </div>
+          <button onclick="loadHistoryItem(${it.id})" class="text-primary hover:underline">加载</button>
+          <button onclick="delHistoryItem(${it.id})" class="text-red-500 hover:underline">删除</button>
+        </div>`).join('');
+    }
+    function loadHistoryItem(id) {
+      const it = historyArr.find(i => i.id === id);
+      if (!it) return;
+      originalImage.src = it.orig;
+      levelResultImage.src = it.levelImg;
+      surfaceResultImage.src = it.surfImg;
+      levelRiskBadge.textContent = it.levelBadge;
+      levelRiskDesc.textContent = it.levelDesc;
+      levelRiskProb.textContent = it.levelProb;
+      surfaceAreaRatio.textContent = it.surfRatio;
+      surfaceWaterCount.textContent = it.surfCount;
+      // 显示面板
+      levelResultPlaceholder.classList.add('hidden');
+      levelResultImage.classList.remove('hidden');
+      levelRiskCard.classList.remove('hidden');
+      surfaceResultPlaceholder.classList.add('hidden');
+      surfaceResultImage.classList.remove('hidden');
+      surfaceAnalysisCard.classList.remove('hidden');
+      previewSection.classList.remove('hidden');
+      dropArea.classList.add('hidden');
+      // 关闭历史面板
+      document.getElementById('history-panel').classList.add('hidden');
+    }
+    function delHistoryItem(id) {
+      historyArr = historyArr.filter(i => i.id !== id);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(historyArr));
+      renderHistoryPanel();
+    }
+    // 初始化模型选择滑块（模型列表与后端配置一致）
+    const getLevelModel = setupModelSlider(levelModelSlider, levelThumb, 'YOLOv11', ['YOLOv11', 'RT_DETR']);
+    const getSurfaceModel = setupModelSlider(surfaceModelSlider, surfaceThumb, 'YOLOv11', ['YOLOv11', 'DeeplabV3+']);
+
+    /* ---------- 文件处理 ---------- */
+    function handleFiles(files) {
+        if (!files.length) return;
+        const file = files[0];
+        if (!file.type.match('image.*')) {
+            alert('请选择 JPG、PNG 等图片文件');
+            return;
+        }
+
+        currentFile = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            originalImage.src = e.target.result;
+            previewSection.classList.remove('hidden');
+            dropArea.classList.add('hidden');
+
+            // 重置结果区域（包含水面分析卡片）
+            resetResults();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /* ---------- 拖放功能 ---------- */
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+        dropArea.addEventListener(evt, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+
+    ['dragenter', 'dragover'].forEach(evt => {
+        dropArea.addEventListener(evt, () => {
+            dropArea.classList.add('border-primary', 'bg-primary/5');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+        dropArea.addEventListener(evt, () => {
+            dropArea.classList.remove('border-primary', 'bg-primary/5');
+        });
+    });
+
+    dropArea.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+    /* ---------- 一键检测功能 ---------- */
+    async function oneClickDetection() {
+        if (!currentFile) return;
+
+        // 显示处理中状态
+        previewSection.classList.add('hidden');
+        processingSection.classList.remove('hidden');
+
+        try {
+            // 并行处理水位和水面检测（效率更高）
+            const [levelResult, surfaceResult] = await Promise.all([
+                processDetection('water-level', getLevelModel()),
+                processDetection('water-surface', getSurfaceModel())
+            ]);
+
+            // 1. 处理水位检测结果（原有逻辑保留）
+            levelResultImage.src = `data:image/jpeg;base64,${levelResult.image}`;
+            levelResultPlaceholder.classList.add('hidden');
+            levelResultImage.classList.remove('hidden');
+            renderLevelRiskCard(levelResult.analysis);
+            renderLevelTagStats(levelResult.class_counts || {});   // ←
+
+            // 2. 处理水面检测结果（新增分析卡片渲染）
+            surfaceResultImage.src = `data:image/jpeg;base64,${surfaceResult.image}`;
+            surfaceResultPlaceholder.classList.add('hidden');
+            surfaceResultImage.classList.remove('hidden');
+            renderSurfaceAnalysisCard(surfaceResult); // 调用水面分析卡片渲染函数
+
+            // 显示最终结果
+            saveToHistory();
+            processingSection.classList.add('hidden');
+            previewSection.classList.remove('hidden');
+
+        } catch (e) {
+            // 异常处理：隐藏加载状态，显示错误提示
+            processingSection.classList.add('hidden');
+            previewSection.classList.remove('hidden');
+            alert(`处理失败：${e.message}`);
+        }
+    }
+
+    /* ---------- 通用检测函数 ---------- */
+    async function processDetection(type, model) {
+        const fd = new FormData();
+        fd.append('file', currentFile);
+        fd.append('model', model);
+
+        const res = await fetch(`http://localhost:8000/detect/${type}`, {
+            method: 'POST',
+            body: fd
+        });
+
+        if (!res.ok) {
+            throw new Error(`检测失败: ${await res.text()}`);
+        }
+
+        return await res.json();
+    }
+    /* 一键清空 */
+    document.getElementById('clear-history-btn').addEventListener('click', () => {
+      if (confirm('确定要清空所有历史记录？')) {
+        historyArr = [];                       // 清空内存
+        localStorage.removeItem(HISTORY_KEY);  // 清空本地存储
+        renderHistoryPanel();                  // 重新渲染（会显示“暂无记录”）
+      }
+    });
+    /* ---------- 重置结果显示（新增水面分析卡片重置） ---------- */
+    function resetResults() {
+        // 1. 重置水位结果（原有逻辑保留）
+        levelResultImage.src = '';
+        levelResultImage.classList.add('hidden');
+        levelResultPlaceholder.classList.remove('hidden');
+        levelRiskCard.classList.add('hidden');
+
+        // 2. 重置水面结果（新增分析卡片重置）
+        surfaceResultImage.src = '';
+        surfaceResultImage.classList.add('hidden');
+        surfaceResultPlaceholder.classList.remove('hidden');
+        surfaceAnalysisCard.classList.add('hidden'); // 隐藏水面分析卡片
+        document.getElementById('level-tag-stats').classList.add('hidden');
+    }
+
+    /* ---------- 事件监听 ---------- */
+    oneClickDetectBtn.addEventListener('click', oneClickDetection);
+
+    resetBtn.addEventListener('click', () => {
+        dropArea.classList.remove('hidden');
+        previewSection.classList.add('hidden');
+        fileInput.value = '';
+        currentFile = null;
+        originalImage.src = '';
+        resetResults(); // 调用重置函数，包含水面分析卡片
+    });
+
+    /* ---------- 历史记录 ---------- */
+    const HISTORY_KEY = 'water_detect_history';
+    let historyArr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+
+    /* 在 oneClickDetection() 的最后（try 块里，renderSurfaceAnalysisCard 之后）调用 */
+    function saveToHistory() {
+      // 1. 将当前 base64 转成 Blob（方便后面再次检测）
+      const b64 = originalImage.src.split(',')[1];
+      const mime = originalImage.src.match(/:(.*?);/)[1];
+      const bin = atob(b64);
+      const u8 = Uint8Array.from(bin, c => c.charCodeAt(0));
+      const blob = new Blob([u8], { type: mime });
+
+      const item = {
+        id: Date.now(),
+        date: new Date().toLocaleString('zh-CN'),
+        orig: originalImage.src,   // 用于预览
+        blob,                      // 用于再次检测
+        levelImg: levelResultImage.src,
+        surfImg: surfaceResultImage.src,
+        levelBadge: levelRiskBadge.textContent,
+        levelDesc: levelRiskDesc.textContent,
+        levelProb: levelRiskProb.textContent,
+        surfRatio: surfaceAreaRatio.textContent,
+        surfCount: surfaceWaterCount.textContent
+      };
+      historyArr.unshift(item);
+      historyArr = historyArr.slice(0, 50);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(historyArr));
+      renderHistoryPanel();
+    }
+    function loadHistoryItem(id) {
+      const it = historyArr.find(i => i.id === id);
+      if (!it) return;
+
+      // 1. 复原文件对象
+      const file = new File([it.blob], `history_${it.id}.jpg`, { type: it.blob.type });
+      currentFile = file;               // 关键：让下次检测用这张图
+      originalImage.src = it.orig;      // 2. 预览
+
+      // 3. 复原结果展示
+      levelResultImage.src = it.levelImg;
+      surfaceResultImage.src = it.surfImg;
+      levelRiskBadge.textContent = it.levelBadge;
+      levelRiskDesc.textContent = it.levelDesc;
+      levelRiskProb.textContent = it.levelProb;
+      surfaceAreaRatio.textContent = it.surfRatio;
+      surfaceWaterCount.textContent = it.surfCount;
+
+      levelResultPlaceholder.classList.add('hidden');
+      levelResultImage.classList.remove('hidden');
+      levelRiskCard.classList.remove('hidden');
+      surfaceResultPlaceholder.classList.add('hidden');
+      surfaceResultImage.classList.remove('hidden');
+      surfaceAnalysisCard.classList.remove('hidden');
+
+      previewSection.classList.remove('hidden');
+      dropArea.classList.add('hidden');
+      document.getElementById('history-panel').classList.add('hidden'); // 关闭旧面板
+    }
+    renderHistoryPanel();
+</script>
+
+
+</body>
+</html>
