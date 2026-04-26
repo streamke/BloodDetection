@@ -83,13 +83,13 @@
 
 ### 4.3 系统效果图
 #### 主界面
-![系统主界面](images/layout.png)
+![系统主界面](image/layout.png)
 
 #### 图片上传界面
-![图片上传界面](images/selectpicture.png)
+![图片上传界面](image/selectpicture.png)
 
 #### 检测结果界面
-![检测结果界面](images/result.png)
+![检测结果界面](image/result.png)
 
 
 ## 项目说明
